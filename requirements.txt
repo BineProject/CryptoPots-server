@@ -1,3 +1,5 @@
 PyMySQL
 PyMySQL[rsa]
 web3
+flask
+flask-cors
