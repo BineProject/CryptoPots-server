@@ -1,8 +1,8 @@
-from app import app
-from contract_monitor import load_contracts_data
+from app import app, monitor
+from flask import jsonify
+import dataclasses
 
 
 @app.route("/getActivePots")
-def home() -> str:
-    d = load_contracts_data()
-    return f"{d} : {d.__class__.__name__}"
+def home():
+    return jsonify([dataclasses.asdict(item) for item in monitor.get_pots_data()])

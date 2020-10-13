@@ -1,10 +1,16 @@
 import pymysql
+import typing
+from util import RawPotData, PartisipantsData
 
 
 class DataSaver:
     def __init__(self) -> None:
         self.con = pymysql.connect("localhost", "root", "1234", "cryptopots_data")
         self.cur = self.con.cursor()
+        self.cur.execute("DROP TABLE IF EXISTS Participations")
+        self.cur.execute("DROP TABLE IF EXISTS Partisipants")
+        self.cur.execute("DROP TABLE IF EXISTS Pots")
+
         self.cur.execute(
             "CREATE TABLE IF NOT EXISTS Pots("
             " `id` INT NOT NULL, "
@@ -12,10 +18,11 @@ class DataSaver:
             " `started` TINYINT NULL, "
             " `finished` TINYINT NULL, "
             " `remaining_blocks` INT NULL, "
+            " `owner` VARCHAR(80) NOT NULL, "
+            " `duration` MEDIUMINT NOT NULL, "
             " PRIMARY KEY (`id`)"
             ")"
         )
-        self.cur.execute("DELETE FROM Pots")
 
         self.cur.execute(
             "CREATE TABLE IF NOT EXISTS Partisipants("
@@ -23,41 +30,81 @@ class DataSaver:
             " PRIMARY KEY (`address`)"
             ")"
         )
-        self.cur.execute("DELETE FROM Partisipants")
 
         self.cur.execute(
             "CREATE TABLE IF NOT EXISTS Participations("
-            " `id` INT NOT NULL, "
             " `partisipant_address` VARCHAR(50)  NOT NULL, "
             " `pot_id` INT NOT NULL, "
             " `volume` VARCHAR(80) NOT NULL, "
-            " PRIMARY KEY (`id`), "
+            " PRIMARY KEY (`pot_id`, `partisipant_address`), "
             " FOREIGN KEY (`partisipant_address`) "
             "  REFERENCES Partisipants(`address`), "
             " FOREIGN KEY (`pot_id`) "
             "  REFERENCES Pots(`id`)"
             ")"
         )
-        self.cur.execute("DELETE FROM Participations")
+
         self.con.commit()
 
-    def add_pot_data(
-        self,
-        pot_id: int,
-        volume: int,
-        started: bool,
-        finished: bool,
-        remaining_blocks: int,
-    ) -> None:
+    def add_pot_data(self, data: RawPotData) -> None:
         self.cur.execute(
-            "REPLACE INTO Pots VALUES(%s, %s, %s, %s, %s)",
-            (pot_id, volume, started, finished, remaining_blocks),
+            "INSERT INTO Pots VALUES(%s, %s, %s, %s, %s, %s, %s)ON DUPLICATE KEY "
+            " UPDATE volume=%s, started=%s, finished=%s, "
+            " remaining_blocks=%s, owner=%s, duration=%s",
+            (
+                data.pot_id,
+                *(
+                    [
+                        data.volume,
+                        data.started,
+                        data.finished,
+                        data.remaining_blocks,
+                        data.owner,
+                        data.duration,
+                    ]
+                    * 2
+                ),
+            ),
         )
         self.con.commit()
 
-    def add_partisipant_data(self, participant: str, pot_id: int, volume: int) -> None:
+    def add_partisipant_data(self, pot_id: int, participant: str, volume: int) -> None:
         self.cur.execute(
-            "INSERT INTO  PartisipantsVALUES",
-            (pot_id, volume, started, finished, remaining_blocks),
+            "INSERT IGNORE INTO Partisipants VALUES(%s)", (participant,),
+        )
+        self.cur.execute(
+            "INSERT INTO Participations(`partisipant_address`, `pot_id`, `volume`)"
+            " VALUES(%s, %s, %s)"
+            " ON DUPLICATE KEY"
+            " UPDATE `volume` = %s",
+            (participant, pot_id, volume, volume),
         )
         self.con.commit()
+
+    def remove_partisipants_data(self, pot_id: int) -> None:
+        self.cur.executemany(
+            "DELETE FROM Participations WHERE "
+            "`pot_id` = %s AND `partisipant_address` = %s",
+            [
+                (pot_id, partisipant)
+                for partisipant, _ in self.get_partisipants_list(pot_id)
+            ],
+        )
+
+    def get_pots_list(self) -> typing.List[typing.Tuple[typing.Any, ...]]:
+        self.cur.execute("SELECT * FROM Pots")
+        res = self.cur.fetchall()
+        return (
+            [typing.cast(typing.Tuple[typing.Any, ...], row) for row in res]
+            if res
+            else []
+        )
+
+    def get_partisipants_list(self, pot_id: int) -> typing.List[typing.Tuple[str, int]]:
+        self.cur.execute(
+            "SELECT `partisipant_address`, `volume` "
+            "FROM Participations WHERE `pot_id` = %s",
+            (pot_id,),
+        )
+        res = self.cur.fetchall()
+        return [typing.cast(typing.Tuple[str, int], row) for row in res] if res else []
