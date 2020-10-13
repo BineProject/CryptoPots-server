@@ -138,3 +138,12 @@ class Monitor:
             )
             for pot in data
         ]
+
+    def get_user_pots_data(self, owner: str) -> typing.List[FullPotData]:
+        data = self.saver.get_user_pots_list(owner)
+        return [
+            FullPotData(  # type: ignore
+                *pot, partisipants=dict(self.saver.get_partisipants_list(pot[0]))
+            )
+            for pot in data
+        ]

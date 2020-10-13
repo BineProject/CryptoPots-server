@@ -100,6 +100,17 @@ class DataSaver:
             else []
         )
 
+    def get_user_pots_list(
+        self, owner: str
+    ) -> typing.List[typing.Tuple[typing.Any, ...]]:
+        self.cur.execute("SELECT * FROM Pots WHERE `owner` = %s", (owner,))
+        res = self.cur.fetchall()
+        return (
+            [typing.cast(typing.Tuple[typing.Any, ...], row) for row in res]
+            if res
+            else []
+        )
+
     def get_partisipants_list(self, pot_id: int) -> typing.List[typing.Tuple[str, int]]:
         self.cur.execute(
             "SELECT `partisipant_address`, `volume` "
