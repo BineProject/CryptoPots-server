@@ -8,7 +8,7 @@ class DataSaver:
         self.con = pymysql.connect("localhost", "root", "1234", "cryptopots_data")
         self.cur = self.con.cursor()
         self.cur.execute("DROP TABLE IF EXISTS Participations")
-        self.cur.execute("DROP TABLE IF EXISTS Partisipants")
+        self.cur.execute("DROP TABLE IF EXISTS Participants")
         self.cur.execute("DROP TABLE IF EXISTS Pots")
 
         self.cur.execute(
@@ -25,7 +25,7 @@ class DataSaver:
         )
 
         self.cur.execute(
-            "CREATE TABLE IF NOT EXISTS Partisipants("
+            "CREATE TABLE IF NOT EXISTS Participants("
             " `address` VARCHAR(50) NOT NULL, "
             " PRIMARY KEY (`address`)"
             ")"
@@ -33,11 +33,11 @@ class DataSaver:
 
         self.cur.execute(
             "CREATE TABLE IF NOT EXISTS Participations("
-            " `partisipant_address` VARCHAR(50)  NOT NULL, "
+            " `participant_address` VARCHAR(50)  NOT NULL, "
             " `pot_id` INT NOT NULL, "
             " `volume` VARCHAR(80) NOT NULL, "
-            " PRIMARY KEY (`pot_id`, `partisipant_address`), "
-            " FOREIGN KEY (`partisipant_address`) "
+            " PRIMARY KEY (`pot_id`, `participant_address`), "
+            " FOREIGN KEY (`participant_address`) "
             "  REFERENCES Partisipants(`address`), "
             " FOREIGN KEY (`pot_id`) "
             "  REFERENCES Pots(`id`)"
@@ -68,12 +68,12 @@ class DataSaver:
         )
         self.con.commit()
 
-    def add_partisipant_data(self, pot_id: int, participant: str, volume: int) -> None:
+    def add_participant_data(self, pot_id: int, participant: str, volume: int) -> None:
         self.cur.execute(
             "INSERT IGNORE INTO Partisipants VALUES(%s)", (participant,),
         )
         self.cur.execute(
-            "INSERT INTO Participations(`partisipant_address`, `pot_id`, `volume`)"
+            "INSERT INTO Participations(`participant_address`, `pot_id`, `volume`)"
             " VALUES(%s, %s, %s)"
             " ON DUPLICATE KEY"
             " UPDATE `volume` = %s",
@@ -81,13 +81,13 @@ class DataSaver:
         )
         self.con.commit()
 
-    def remove_partisipants_data(self, pot_id: int) -> None:
+    def remove_participants_data(self, pot_id: int) -> None:
         self.cur.executemany(
             "DELETE FROM Participations WHERE "
-            "`pot_id` = %s AND `partisipant_address` = %s",
+            "`pot_id` = %s AND `participant_address` = %s",
             [
                 (pot_id, partisipant)
-                for partisipant, _ in self.get_partisipants_list(pot_id)
+                for partisipant, _ in self.get_participants_list(pot_id)
             ],
         )
 
@@ -111,9 +111,9 @@ class DataSaver:
             else []
         )
 
-    def get_partisipants_list(self, pot_id: int) -> typing.List[typing.Tuple[str, int]]:
+    def get_participants_list(self, pot_id: int) -> typing.List[typing.Tuple[str, int]]:
         self.cur.execute(
-            "SELECT `partisipant_address`, `volume` "
+            "SELECT `participant_address`, `volume` "
             "FROM Participations WHERE `pot_id` = %s",
             (pot_id,),
         )
