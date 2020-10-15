@@ -1,6 +1,6 @@
 import pymysql
 import typing
-from util import RawPotData, PartisipantsData
+from util import RawPotData, ParticipantsData
 
 
 class DataSaver:

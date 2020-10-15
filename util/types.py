@@ -13,10 +13,10 @@ class RawPotData:
     duration: int
 
 
-PartisipantsData = typing.Dict[str, int]
+ParticipantsData = typing.Dict[str, int]
 
 
 @dataclasses.dataclass
 class FullPotData(RawPotData):
-    partisipants: PartisipantsData
+    participants: ParticipantsData
 

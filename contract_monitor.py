@@ -6,7 +6,7 @@ from util.types import FullPotData
 from web3 import Web3, HTTPProvider
 from web3.logs import STRICT
 from database import DataSaver
-from util import RawPotData, FullPotData, PartisipantsData
+from util import RawPotData, FullPotData, ParticipantsData
 
 
 class Event(typing.TypedDict):
@@ -31,7 +31,7 @@ class Monitor:
         # Path to the compiled contract JSON file
         self.compiled_contract_path = "contracts/CryptoPotsController.json"
         # Deployed contract address (see `migrate` command output: `contract address`)
-        self.deployed_contract_address = "0xabBb8D03333400fe16dA18e47D2A4f3adEc55C38"
+        self.deployed_contract_address = "0x6b3F7bccdabe3f2A600610F1fFb354C9f7462b10"
 
         with open(self.compiled_contract_path) as file:
             # load contract info as JSON
@@ -73,7 +73,7 @@ class Monitor:
         ) -> None:
             # print("BetLog", potID, who, amount)
             self.saver.add_pot_data(self._load_pot_data(potID))
-            self.saver.add_partisipant_data(potID, who, aggregatedAmount)
+            self.saver.add_participant_data(potID, who, aggregatedAmount)
 
         @connect_event("PayoutLog", fromBlock="latest")
         def _on_new_payout_made(
@@ -81,16 +81,13 @@ class Monitor:
         ) -> None:
             # print("PayoutLog", potID, who, amount, data)
             self.saver.add_pot_data(self._load_pot_data(potID))
-            self.saver.remove_partisipants_data(potID)
+            self.saver.remove_participants_data(potID)
 
         def _run_event_loop() -> None:
-            i = 1
             while True:
                 for event_filter, callback in self._filter_connections.items():
                     for event in event_filter.get_new_entries():
-                        print(i, hash(event), event)
                         callback(**dict(event["args"]))
-                i += 1
 
         self.thread = threading.Thread(target=_run_event_loop)
         self.thread.setDaemon(True)
@@ -99,10 +96,10 @@ class Monitor:
     def __load_initial_data(self) -> None:
         for pot_data in self._load_pots_data():
             self.saver.add_pot_data(pot_data)
-            for partisipant, volume in self._load_partisipants_data(
+            for partisipant, volume in self._load_participants_data(
                 pot_data.pot_id
             ).items():
-                self.saver.add_partisipant_data(pot_data.pot_id, partisipant, volume)
+                self.saver.add_participant_data(pot_data.pot_id, partisipant, volume)
 
     def _load_pots_data(self) -> typing.List[RawPotData]:
         return [
@@ -121,7 +118,7 @@ class Monitor:
             duration=self.contract.functions.getPotDuration(pot_id).call(),
         )
 
-    def _load_partisipants_data(self, pot_id: int) -> PartisipantsData:
+    def _load_participants_data(self, pot_id: int) -> ParticipantsData:
         return {
             typing.cast(str, partisipant): typing.cast(
                 int,
@@ -130,20 +127,26 @@ class Monitor:
             for partisipant in self.contract.functions.getParticipants(pot_id).call()
         }
 
+    _RowDataType = typing.Tuple[int, int, bool, bool, int, str, int]
+
     def get_pots_data(self) -> typing.List[FullPotData]:
-        data = self.saver.get_pots_list()
+        data: typing.List[Monitor._RowDataType] = typing.cast(
+            typing.List[Monitor._RowDataType], self.saver.get_pots_list()
+        )
         return [
-            FullPotData(  # type: ignore
-                *pot, partisipants=dict(self.saver.get_partisipants_list(pot[0]))
+            FullPotData(
+                *pot, participants=dict(self.saver.get_participants_list(pot[0]))
             )
             for pot in data
         ]
 
     def get_user_pots_data(self, owner: str) -> typing.List[FullPotData]:
-        data = self.saver.get_user_pots_list(owner)
+        data: typing.List[Monitor._RowDataType] = typing.cast(
+            typing.List[Monitor._RowDataType], self.saver.get_user_pots_list(owner)
+        )
         return [
-            FullPotData(  # type: ignore
-                *pot, partisipants=dict(self.saver.get_partisipants_list(pot[0]))
+            FullPotData(
+                *pot, participants=dict(self.saver.get_participants_list(pot[0]))
             )
             for pot in data
         ]

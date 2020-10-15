@@ -1,1 +1,1 @@
-from .types import RawPotData, PartisipantsData, FullPotData
+from .types import RawPotData, ParticipantsData, FullPotData
