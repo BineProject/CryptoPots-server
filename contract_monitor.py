@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import json
 import threading
 import typing
+import configparser
 from util.types import FullPotData
 from web3 import Web3, HTTPProvider
 from web3.logs import STRICT
@@ -21,7 +22,7 @@ class IEventFilter(typing.Protocol):
 class Monitor:
     def __init__(self, saver: DataSaver) -> None:
         # truffle development blockchain address
-        self.blockchain_address = "HTTP://127.0.0.1:8545"
+        self.blockchain_address = "HTTP://192.168.50.200:8545"
         # Client instance to interact with the blockchain
         self.web3 = Web3(HTTPProvider(self.blockchain_address))
         # Set the default account
@@ -31,7 +32,9 @@ class Monitor:
         # Path to the compiled contract JSON file
         self.compiled_contract_path = "contracts/CryptoPotsController.json"
         # Deployed contract address (see `migrate` command output: `contract address`)
-        self.deployed_contract_address = "0x6b3F7bccdabe3f2A600610F1fFb354C9f7462b10"
+        config = configparser.ConfigParser()
+        config.read("contracts/data.ini")
+        self.deployed_contract_address = config["DEFAULT"]["address"]
 
         with open(self.compiled_contract_path) as file:
             # load contract info as JSON
