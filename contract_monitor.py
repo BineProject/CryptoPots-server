@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 import json
 import threading
@@ -20,6 +22,11 @@ class IEventFilter(typing.Protocol):
 
 
 class Monitor:
+    __instance: typing.Optional[Monitor] = None
+
+    def __new__(cls: typing.Type[Monitor], *args, **kwargs) -> Monitor:
+        return cls.__instance or super().__new__(cls)
+
     def __init__(self, saver: DataSaver) -> None:
         # truffle development blockchain address
         self.blockchain_address = "HTTP://192.168.50.200:8545"
@@ -27,7 +34,7 @@ class Monitor:
         self.web3 = Web3(HTTPProvider(self.blockchain_address))
         # Set the default account
         # (so we don't need to set the "from" for every transaction call)
-        self.web3.eth.defaultAccount = self.web3.eth.accounts[1]
+        self.web3.eth.defaultAccount = self.web3.eth.accounts[0]
 
         # Path to the compiled contract JSON file
         self.compiled_contract_path = "contracts/CryptoPotsController.json"
@@ -47,6 +54,8 @@ class Monitor:
             address=self.deployed_contract_address, abi=contract_abi
         )
         self.saver = saver
+
+        print("INIT")
 
         self.__load_initial_data()
         self.__init_event_system()
@@ -130,12 +139,8 @@ class Monitor:
             for partisipant in self.contract.functions.getParticipants(pot_id).call()
         }
 
-    _RowDataType = typing.Tuple[int, int, bool, bool, int, str, int]
-
     def get_pots_data(self) -> typing.List[FullPotData]:
-        data: typing.List[Monitor._RowDataType] = typing.cast(
-            typing.List[Monitor._RowDataType], self.saver.get_pots_list()
-        )
+        data = self.saver.get_pots_list()
         return [
             FullPotData(
                 *pot, participants=dict(self.saver.get_participants_list(pot[0]))
@@ -144,12 +149,16 @@ class Monitor:
         ]
 
     def get_user_pots_data(self, owner: str) -> typing.List[FullPotData]:
-        data: typing.List[Monitor._RowDataType] = typing.cast(
-            typing.List[Monitor._RowDataType], self.saver.get_user_pots_list(owner)
-        )
+        data = self.saver.get_user_pots_list(owner)
         return [
             FullPotData(
                 *pot, participants=dict(self.saver.get_participants_list(pot[0]))
             )
             for pot in data
         ]
+
+    def get_pot_data(self, pot_id: int) -> typing.Optional[FullPotData]:
+        data: typing.Optional[DataSaver.PotsTableRow] = self.saver.get_pot_data(pot_id)
+        return data and FullPotData(
+            *data, participants=dict(self.saver.get_participants_list(pot_id))
+        )

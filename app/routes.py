@@ -1,8 +1,16 @@
 from app import app, monitor
-from flask import jsonify
+from flask import jsonify, abort
 import dataclasses
 import json
 import configparser
+
+
+# @app.errorhandler(404)
+# def notFound():
+#     return (
+#         jsonify({"err": 404, "msg": "The stuff you requested for is not found."}),
+#         404,
+#     )
 
 
 @app.route("/pots/active")
@@ -16,6 +24,14 @@ def userPots(user: str):
     return jsonify(
         [dataclasses.asdict(item) for item in monitor.get_user_pots_data(user)]
     )
+
+
+@app.route("/pot/<int:pot_id>")
+def potData(pot_id: int):
+    pot_data = monitor.get_pot_data(pot_id)
+    if not pot_data:
+        abort(404)
+    return jsonify(dataclasses.asdict(pot_data))
 
 
 @app.route("/contract")

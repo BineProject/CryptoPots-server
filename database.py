@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import pymysql
 import typing
 from util import RawPotData, ParticipantsData
 
 
 class DataSaver:
+    PotsTableRow = typing.Tuple[int, str, bool, bool, int, str, int]
+    PartisipantDataRow = typing.Tuple[str, str]
+
     def __init__(self) -> None:
         self.con = pymysql.connect("localhost", "root", "1234", "cryptopots_data")
         self.cur = self.con.cursor()
@@ -91,31 +96,68 @@ class DataSaver:
             ],
         )
 
-    def get_pots_list(self) -> typing.List[typing.Tuple[typing.Any, ...]]:
+    def get_pots_list(self) -> typing.List[PotsTableRow]:
         self.cur.execute("SELECT * FROM Pots")
         res = self.cur.fetchall()
-        return (
-            [typing.cast(typing.Tuple[typing.Any, ...], row) for row in res]
-            if res
-            else []
-        )
+        return [typing.cast(DataSaver.PotsTableRow, row) for row in res] if res else []
 
-    def get_user_pots_list(
-        self, owner: str
-    ) -> typing.List[typing.Tuple[typing.Any, ...]]:
+    def get_user_pots_list(self, owner: str) -> typing.List[PotsTableRow]:
         self.cur.execute("SELECT * FROM Pots WHERE `owner` = %s", (owner,))
         res = self.cur.fetchall()
         return (
-            [typing.cast(typing.Tuple[typing.Any, ...], row) for row in res]
+            [
+                typing.cast(
+                    DataSaver.PotsTableRow,
+                    tuple(
+                        item_type(item)
+                        for item_type, item in zip(
+                            DataSaver.PotsTableRow.__args__, row  # type: ignore
+                        )
+                    ),
+                )
+                for row in res
+            ]
             if res
             else []
         )
 
-    def get_participants_list(self, pot_id: int) -> typing.List[typing.Tuple[str, int]]:
+    def get_participants_list(self, pot_id: int) -> typing.List[PartisipantDataRow]:
         self.cur.execute(
             "SELECT `participant_address`, `volume` "
             "FROM Participations WHERE `pot_id` = %s",
             (pot_id,),
         )
         res = self.cur.fetchall()
-        return [typing.cast(typing.Tuple[str, int], row) for row in res] if res else []
+        return (
+            [
+                typing.cast(
+                    DataSaver.PartisipantDataRow,
+                    tuple(
+                        item_type(item)
+                        for item_type, item in zip(
+                            DataSaver.PartisipantDataRow.__args__, row  # type: ignore
+                        )
+                    ),
+                )
+                for row in res
+            ]
+            if res
+            else []
+        )
+
+    def get_pot_data(self, pot_id: int) -> typing.Optional[PotsTableRow]:
+        try:
+            self.cur.execute("SELECT * FROM Pots WHERE id = %s", (pot_id,))
+        except pymysql.err.OperationalError:
+            raise
+
+        row = self.cur.fetchone()
+        return row and typing.cast(
+            DataSaver.PotsTableRow,
+            tuple(
+                item_type(item)
+                for item_type, item in zip(
+                    DataSaver.PotsTableRow.__args__, row  # type: ignore
+                )
+            ),
+        )
